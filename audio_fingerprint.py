@@ -182,15 +182,12 @@ class AudioMatcher:
     Two fingerprints match if enough hashes align at consistent time offsets.
     """
     def match(self, broadcast_hashes, reference_hashes, min_matches=5):
-        # Build lookup: hash_value → list of time offsets in reference
         ref_lookup = {}
         for hash_val, time_offset in reference_hashes:
             if hash_val not in ref_lookup:
                 ref_lookup[hash_val] = []
             ref_lookup[hash_val].append(time_offset)
 
-        # For each broadcast hash, check if it exists in reference
-        # Count time offset differences — consistent offset = real match
         offset_counts = {}
         for hash_val, b_time in broadcast_hashes:
             if hash_val in ref_lookup:
@@ -199,14 +196,19 @@ class AudioMatcher:
                     offset_counts[delta] = offset_counts.get(delta, 0) + 1
 
         if not offset_counts:
-            return False, 0
+            return False, 0, -1
 
-        # Best match = most consistent time offset
         best_offset = max(offset_counts, key=offset_counts.get)
         best_count  = offset_counts[best_offset]
 
+        # best_offset is in spectrogram frames
+        # each frame = hop_length / sample_rate seconds
+        hop_length  = 1024  # matches your SpectrogramGenerator
+        sample_rate = 11025
+        timestamp_sec = abs(best_offset) * hop_length / sample_rate
+
         matched = best_count >= min_matches
-        return matched, best_count
+        return matched, best_count, timestamp_sec
 
 
 # ── TEST ────────────────────────────────────────────────────────
