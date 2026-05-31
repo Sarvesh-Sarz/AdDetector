@@ -48,6 +48,17 @@ class TripletDataset(Dataset):
     - positive: a different frame from ad X (same ad)
     - negative: a frame from ad Y (different ad)
     """
+    HARD_PAIRS = [
+        ('dettol_1_30s', 'dettol_2_30s'),
+        ('bru_20s', 'bru_25s'),
+        ('samsung_1_35s', 'samsung_2_35s'),
+        ('apple_1_20s', 'apple_2_20s'),
+        ('amazon_20s', 'amazon_summer_20s'),
+        ('kalyan_jewellers_17s', 'joyalukkas_69s'),  # both jewellery ads
+        ('hyundai_20s', 'renault_45s'),               # both car ads
+        ('closeup_20s', 'colgate_30s'),               # both toothpaste ads
+    ]
+
     def __init__(self, ads_frames_folder="ads_frames"):
         self.ads_frames_folder = ads_frames_folder
         self.extractor = FrameExtractor()
@@ -67,6 +78,20 @@ class TripletDataset(Dataset):
         self.ad_ids = list(self.ad_frames.keys())
         print(f"Dataset loaded: {len(self.ad_ids)} ads, "
               f"{sum(len(v) for v in self.ad_frames.values())} total frames")
+
+        # After loading ad_frames, also load filler frames
+        self.filler_frames = []
+        filler_folder = "filler_frames"  # extract filler frames too
+
+        if os.path.exists(filler_folder):
+            for folder in os.listdir(filler_folder):
+                folder_path = os.path.join(filler_folder, folder)
+                if os.path.isdir(folder_path):
+                    frames = [os.path.join(folder_path, f)
+                            for f in os.listdir(folder_path)
+                            if f.endswith('.jpg')]
+                    self.filler_frames.extend(frames)
+            print(f"Loaded {len(self.filler_frames)} filler frames")
 
     def __len__(self):
         # Each ad contributes multiple triplets
@@ -88,42 +113,49 @@ class TripletDataset(Dataset):
         return frame.astype(np.float32)
 
     def __getitem__(self, idx):
-        use_hard_negative = idx > len(self) * 0.3
-
         anchor_ad = random.choice(self.ad_ids)
-        negative_ad = random.choice(
-            [a for a in self.ad_ids if a != anchor_ad])
-
         anchor_path, positive_path = random.sample(
             self.ad_frames[anchor_ad], 2)
 
-        # Preprocess all three frames
         anchor   = self.extractor.preprocess(anchor_path)
         positive = self.extractor.preprocess(positive_path)
 
-        if use_hard_negative:
-            candidates = random.sample(
-                [a for a in self.ad_ids if a != anchor_ad],
-                min(5, len(self.ad_ids) - 1))
-            best_negative_path = None
-            best_similarity    = -1
-            anchor_tensor = torch.tensor(anchor).flatten().unsqueeze(0)
-            for candidate_ad in candidates:
-                candidate_path = random.choice(
-                    self.ad_frames[candidate_ad])
-                candidate = self.extractor.preprocess(candidate_path)
-                candidate_tensor = torch.tensor(candidate).flatten().unsqueeze(0)
-                sim = torch.nn.functional.cosine_similarity(
-                    anchor_tensor, candidate_tensor).item()
-                if sim > best_similarity:
-                    best_similarity    = sim
-                    best_negative_path = candidate_path
-            negative = self.extractor.preprocess(best_negative_path)
+        # ── NEGATIVE SELECTION (one clean block) ──
+        rand = random.random()
+
+        if rand < 0.4:
+            # Hard pair negative
+            hard_negative_ad = None
+            for a, b in self.HARD_PAIRS:
+                if anchor_ad == a and b in self.ad_frames:
+                    hard_negative_ad = b
+                    break
+                elif anchor_ad == b and a in self.ad_frames:
+                    hard_negative_ad = a
+                    break
+
+            if hard_negative_ad:
+                negative_path = random.choice(
+                    self.ad_frames[hard_negative_ad])
+            else:
+                negative_ad   = random.choice(
+                    [a for a in self.ad_ids if a != anchor_ad])
+                negative_path = random.choice(self.ad_frames[negative_ad])
+            negative = self.extractor.preprocess(negative_path)
+
+        elif rand < 0.7 and self.filler_frames:
+            # Filler negative
+            negative_path = random.choice(self.filler_frames)
+            negative      = self.extractor.preprocess(negative_path)
+
         else:
+            # Random ad negative
+            negative_ad   = random.choice(
+                [a for a in self.ad_ids if a != anchor_ad])
             negative_path = random.choice(self.ad_frames[negative_ad])
             negative      = self.extractor.preprocess(negative_path)
 
-        # Apply augmentation to ALL three frames
+        # ── AUGMENT ──
         anchor   = self.augment(anchor)
         positive = self.augment(positive)
         negative = self.augment(negative)
@@ -132,8 +164,14 @@ class TripletDataset(Dataset):
                 torch.tensor(positive, dtype=torch.float32),
                 torch.tensor(negative, dtype=torch.float32))
 
-
 if __name__ == "__main__":
+    # Extract filler frames
+    filler_extractor = AdDatasetBuilder(
+        ads_raw_folder="filler",
+        ads_frames_folder="filler_frames"
+    )
+    filler_extractor.build()
+
     # Step 1: Build dataset from raw videos
     builder = AdDatasetBuilder()
     builder.build()
