@@ -1,4 +1,4 @@
-# AdDetector 📺
+# AdDetector 
 
 > Automated TV broadcast ad detection and delivery verification system — built entirely from scratch.
 
