@@ -201,11 +201,22 @@ class AudioMatcher:
         best_offset = max(offset_counts, key=offset_counts.get)
         best_count  = offset_counts[best_offset]
 
-        # best_offset is in spectrogram frames
-        # each frame = hop_length / sample_rate seconds
-        hop_length  = 1024  # matches your SpectrogramGenerator
-        sample_rate = 11025
-        timestamp_sec = abs(best_offset) * hop_length / sample_rate
+
+        matching_broadcast_times = []
+        for hash_val, b_time in broadcast_hashes:
+            if hash_val in ref_lookup:
+                for r_time in ref_lookup[hash_val]:
+                    if b_time - r_time == best_offset:
+                        matching_broadcast_times.append(b_time)
+
+        if matching_broadcast_times:
+            # Convert from spectrogram frames to seconds
+            hop_length  = 1024
+            sample_rate = 11025
+            median_frame = sorted(matching_broadcast_times)[len(matching_broadcast_times)//2]
+            timestamp_sec = median_frame * hop_length / sample_rate
+        else:
+            timestamp_sec = -1
 
         matched = best_count >= min_matches
         return matched, best_count, timestamp_sec
