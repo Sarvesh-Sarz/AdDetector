@@ -4,9 +4,8 @@ from torch.utils.data import DataLoader
 from cnn import AdFingerprintCNN, TripletLoss
 from dataset import TripletDataset
 
-def train(epochs=50, batch_size=16, lr=1e-4):
-    device     = torch.device("cuda" if torch.cuda.is_available()
-                              else "cpu")
+def train(epochs=100, batch_size=16, lr=1e-4):
+    device     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on: {device}")
 
     dataset    = TripletDataset()
@@ -16,10 +15,15 @@ def train(epochs=50, batch_size=16, lr=1e-4):
     model     = AdFingerprintCNN(embedding_dim=512).to(device)
     criterion = TripletLoss(margin=0.3)
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    #scheduler = torch.optim.lr_scheduler.StepLR(
+      #  optimizer, step_size=20, gamma=0.5)
+    
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=100, eta_min=1e-6)
 
-    # Learning rate decay — reduce lr every 30 epochs
-    scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=30, gamma=0.1)
+    best_loss     = float('inf')
+    patience      = 8  # stop if no improvement for 8 epochs
+    patience_counter = 0
 
     for epoch in range(epochs):
         model.train()
@@ -45,20 +49,29 @@ def train(epochs=50, batch_size=16, lr=1e-4):
             batches    += 1
 
         avg_loss = total_loss / batches
-        scheduler.step()  # decay learning rate
+        scheduler.step()
 
-        current_lr = scheduler.get_last_lr()[0]
-        print(f"Epoch [{epoch+1:03d}/{epochs}] "
-              f"Loss: {avg_loss:.4f} "
-              f"LR: {current_lr:.6f}")
+        print(f"Epoch [{epoch+1:02d}/{epochs}] Loss: {avg_loss:.4f}")
 
-        if (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(),
-                       f"model_epoch_{epoch+1}.pth")
-            print(f"Saved: model_epoch_{epoch+1}.pth")
+        # ── BEST MODEL CHECKPOINT ──
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            torch.save(model.state_dict(), "model_best.pth")
+            print(f"  ✓ New best model saved (loss: {best_loss:.4f})")
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            print(f"  No improvement ({patience_counter}/{patience})")
 
-    torch.save(model.state_dict(), "model_final.pth")
-    print("Training complete!")
+        # ── EARLY STOPPING ──
+        if patience_counter >= patience:
+            print(f"Early stopping at epoch {epoch+1}")
+            break
+
+    # Use best model as final
+    import shutil
+    shutil.copy("model_best.pth", "model_final.pth")
+    print(f"Training complete! Best loss: {best_loss:.4f}")
 
 if __name__ == "__main__":
     train()
