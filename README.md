@@ -60,7 +60,7 @@ broadcast_test.mp4
 
 ---
 
-## Everything Built From Scratch
+## Components
 
 | Component | What it does | No external AI library |
 |---|---|---|
@@ -187,26 +187,27 @@ Open `ad_delivery_report.xlsx`
 
 ---
 
-## Training Your Own Model
 
-```bash
-# Extract frames from ads
-python dataset.py
 
-# Train on Google Colab (recommended — free GPU)
-# Upload AdDetector.zip to Google Drive, then:
-!python train.py
+## Test Data
 
-# Download model_final.pth back to AdDetector folder
-```
+The broadcast test video is not included in this repo 
+due to file size. To create your own:
 
-Training details:
-- 50–100 epochs
-- Triplet Loss with margin 0.3
-- Hard negative mining from epoch 30%
-- 30% filler frames as negatives
-- Cosine annealing learning rate schedule
-- Early stopping with best model checkpointing
+1. Download ad videos using yt-dlp
+2. Download filler content
+3. Create broadcast_list.txt with your desired order
+4. Run: ffmpeg -f concat -safe 0 -i broadcast_list.txt 
+         -c copy broadcast_test.mp4
+
+---
+
+## Pretrained Model
+
+Download the pretrained model (100 epochs, 31 ads):
+https://drive.google.com/file/d/1YC-Bu9G78inUwKBbt7sboOxdnKc30KaV/view?usp=sharing
+
+Place it in the AdDetector root folder before running.
 
 ---
 
