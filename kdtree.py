@@ -147,22 +147,24 @@ class VideoMatcher:
         self.tree.build(points, all_ad_ids, all_frame_idxs)
         print(f"Database built: {len(all_vectors)} reference vectors")
 
-    def match_frame(self, query_vector):
-        """
-        Match a single broadcast frame against the database.
-        Returns (ad_id, similarity) if match found, else None.
-        """
+    def match_frame(self, query_vector, ad_thresholds=None):
         results = self.tree.nearest_neighbor(query_vector, k=3)
         if not results:
             return None, 0.0
 
         best_ad_id, best_frame, best_sim = results[0]
+    
+        # Use per-ad threshold if available
+        if ad_thresholds and best_ad_id in ad_thresholds:
+            threshold = ad_thresholds[best_ad_id]
+        else:
+            threshold = self.threshold
 
-        if best_sim >= self.threshold:
+        if best_sim >= threshold:
             return best_ad_id, best_sim
         return None, best_sim
 
-    def match_sequence(self, query_vectors, min_consecutive=12):
+    def match_sequence(self, query_vectors, min_consecutive=12, ad_thresholds=None):
         """
         Match a sequence of broadcast frames.
         Requires min_consecutive matching frames to confirm detection.
@@ -210,6 +212,8 @@ class VideoMatcher:
                 current_ad  = None
                 streak      = 0
                 confidences = []
+        for i, vector in enumerate(query_vectors):
+            ad_id, sim = self.match_frame(vector, ad_thresholds)
 
         return detections
 
