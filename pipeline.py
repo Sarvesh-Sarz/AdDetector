@@ -8,10 +8,6 @@ from audio_fingerprint import AudioFingerprinter, AudioMatcher
 from kdtree import VideoMatcher
 
 class AdDatabase:
-    """
-    Stores all reference ad fingerprints.
-    For each ad: video vectors in KD-tree + audio hashes in dict.
-    """
     def __init__(self):
         self.video_matcher    = VideoMatcher(similarity_threshold=0.80)
         self.audio_fingerprinter = AudioFingerprinter()
@@ -85,10 +81,6 @@ class AdDatabase:
                 print(f"  {ad_id:<30} {old:.3f} → {threshold:.3f}")
 
     def register_ad(self, ad_id, video_path, booked_slots=1):
-        """
-        Register a new ad into the database.
-        Extracts both video vectors and audio hashes.
-        """
         print(f"\nRegistering ad: {ad_id}")
 
         # ── VIDEO FINGERPRINTING ──
@@ -153,12 +145,6 @@ class AdDatabase:
 
 
 class BroadcastScanner:
-    """
-    Scans a broadcast video frame by frame.
-    Matches each frame against the ad database using both
-    video CNN vectors and audio hashes.
-    Combines both signals for high confidence detection.
-    """
     def __init__(self, database: AdDatabase):
         self.db        = database
         self.extractor = FrameExtractor(fps=1)
@@ -276,10 +262,6 @@ class BroadcastScanner:
 
 
 class DetectionReport:
-    """
-    Compares detected airings against booked orders.
-    Generates Excel report — only Status cell is colored.
-    """
     def __init__(self, database: AdDatabase):
         self.db = database
 
