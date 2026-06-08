@@ -1,41 +1,24 @@
 import numpy as np
 
 class KDNode:
-    """Single node in the KD-tree."""
     def __init__(self, point=None, ad_id=None, frame_idx=None,
                  left=None, right=None,
                  split_dim=None, split_val=None):
-        self.point     = point      # 512-d feature vector
-        self.ad_id     = ad_id      # which ad this frame belongs to
-        self.frame_idx = frame_idx  # frame number within that ad
-        self.left      = left       # KDNode — points below split
-        self.right     = right      # KDNode — points above split
-        self.split_dim = split_dim  # which dimension was used to split
-        self.split_val = split_val  # value at which split was made
+        self.point     = point  
+        self.ad_id     = ad_id    
+        self.frame_idx = frame_idx  
+        self.left      = left     
+        self.right     = right    
+        self.split_dim = split_dim 
+        self.split_val = split_val  
 
 
 class KDTree:
-    """
-    Custom KD-tree for nearest neighbor search in 512-d space.
-    Built entirely from scratch using NumPy.
-
-    Why KD-tree?
-    - Brute force: compare query against every point = O(n) per query
-    - KD-tree: partition space into regions = O(log n) per query
-    - At 10,000 stored frames, brute force = 10,000 comparisons
-    - KD-tree = ~13 comparisons. That's the difference.
-    """
     def __init__(self):
         self.root       = None
         self.all_points = []  # keep flat list for fallback
 
     def build(self, points, ad_ids, frame_idxs):
-        """
-        Build tree from list of 512-d vectors.
-        points:     numpy array shape (N, 512)
-        ad_ids:     list of N ad ID strings
-        frame_idxs: list of N frame indices
-        """
         self.all_points = list(zip(points, ad_ids, frame_idxs))
         indices = list(range(len(points)))
         self.root = self._build_recursive(points, ad_ids, frame_idxs,
@@ -47,10 +30,6 @@ class KDTree:
                          indices, depth):
         if not indices:
             return None
-
-        # Choose split dimension:
-        # At each level, pick dimension with highest variance
-        # This gives the most balanced, informative splits
         subset = points[indices]
         variances  = np.var(subset, axis=0)
         split_dim  = int(np.argmax(variances))
@@ -133,10 +112,6 @@ class KDTree:
 
 
 class VideoMatcher:
-    """
-    Uses KD-tree to match frames from broadcast video
-    against reference ad database.
-    """
     def __init__(self, similarity_threshold=0.80):
         self.tree      = KDTree()
         self.threshold = similarity_threshold
@@ -165,14 +140,6 @@ class VideoMatcher:
         return None, best_sim
 
     def match_sequence(self, query_vectors, min_consecutive=12, ad_thresholds=None):
-        """
-        Match a sequence of broadcast frames.
-        Requires min_consecutive matching frames to confirm detection.
-        This prevents false positives from random similar frames.
-
-        Returns list of detections:
-        [{'ad_id', 'start_frame', 'end_frame', 'confidence'}]
-        """
         detections  = []
         current_ad  = None
         streak      = 0
