@@ -11,19 +11,17 @@ class AudioExtractor:
         self.sample_rate = sample_rate
 
     def extract(self, video_path):
-        # Call FFmpeg as subprocess to extract raw PCM audio
-        # -ac 1 = mono, -ar = sample rate, -f f32le = 32-bit float raw
+        # Calling ffmpeg
         command = [
             'ffmpeg', '-i', video_path,
             '-ac', '1',
             '-ar', str(self.sample_rate),
             '-f', 'f32le',
             '-loglevel', 'quiet',
-            'pipe:1'  # output to stdout
+            'pipe:1' 
         ]
         result = subprocess.run(command, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
-        # Convert raw bytes to NumPy float32 array
         audio = np.frombuffer(result.stdout, dtype=np.float32)
         print(f"Extracted audio: {len(audio)} samples "
               f"({len(audio)/self.sample_rate:.1f} seconds)")
@@ -41,34 +39,26 @@ class SpectrogramGenerator:
         self.hop_length  = hop_length
 
     def generate(self, audio):
-        # Step 1 — Hann window (reduces spectral leakage at frame edges)
         window = np.hanning(self.n_fft)
 
         frames = []
-        # Step 2 — Slide window across signal
         for start in range(0, len(audio) - self.n_fft, self.hop_length):
             frame = audio[start : start + self.n_fft]
 
-            # Step 3 — Apply window to frame
             windowed = frame * window
 
-            # Step 4 — FFT: convert time domain → frequency domain
             spectrum = np.fft.rfft(windowed)
 
-            # Step 5 — Magnitude spectrum (ignore phase)
             magnitude = np.abs(spectrum)
 
             frames.append(magnitude)
 
-        # Shape: (freq_bins, time_frames)
         spectrogram = np.array(frames).T
         print(f"Spectrogram shape: {spectrogram.shape} "
               f"(freq_bins x time_frames)")
         return spectrogram
 
     def to_db(self, spectrogram):
-        # Convert to decibels — makes peaks more visible
-        # Add small value to avoid log(0)
         return 20 * np.log10(spectrogram + 1e-9)
 
 
@@ -90,15 +80,11 @@ class PeakDetector:
         # Slide a window across the spectrogram
         for t in range(w, time_frames - w):
             for f in range(w, freq_bins - w):
-                # Get local neighborhood
                 neighborhood = db_spec[f-w:f+w, t-w:t+w]
                 center_val   = db_spec[f, t]
-
-                # Peak = center is the maximum in its neighborhood
                 if center_val == neighborhood.max():
-                    # Also above a global threshold
                     if center_val > db_spec.max() * self.threshold_ratio:
-                        peaks.append((f, t))  # (frequency_bin, time_frame)
+                        peaks.append((f, t))  
 
         print(f"Found {len(peaks)} peaks")
         return peaks
@@ -112,20 +98,16 @@ class AudioFingerprinter:
     This is the core of Shazam-like matching — implemented from scratch.
     """
     def __init__(self, fan_out=5, time_window=50):
-        self.fan_out     = fan_out     # how many pairs per anchor peak
-        self.time_window = time_window # how far ahead to look for pairs
+        self.fan_out     = fan_out     
+        self.time_window = time_window 
 
     def generate_hashes(self, peaks):
         hashes = []
         for i, (freq1, time1) in enumerate(peaks):
-            # Look at next fan_out peaks within time_window
             for freq2, time2 in peaks[i+1 : i+1+self.fan_out]:
                 if time2 - time1 > self.time_window:
                     break
                 time_delta = time2 - time1
-
-                # Hash: combine freq1, freq2, time_delta into one integer
-                # Bit packing: freq1(10 bits) | freq2(10 bits) | delta(12 bits)
                 hash_val = (freq1 & 0x3FF) << 22 | \
                            (freq2 & 0x3FF) << 12 | \
                            (time_delta & 0xFFF)
@@ -133,7 +115,7 @@ class AudioFingerprinter:
                 hashes.append((hash_val, time1))
 
         print(f"Generated {len(hashes)} fingerprint hashes")
-        return hashes  # list of (hash_value, time_offset) tuples
+        return hashes  
 
     def fingerprint_video(self, video_path):
         """Full pipeline: video → audio → spectrogram → peaks → hashes"""
@@ -222,11 +204,10 @@ class AudioMatcher:
         return matched, best_count, timestamp_sec
 
 
-# ── TEST ────────────────────────────────────────────────────────
+# TEST
 if __name__ == "__main__":
     import os
 
-    # Find first ad in ads_raw
     ads = [f for f in os.listdir('ads_raw') if f.endswith('.mp4')]
     if not ads:
         print("No ads found in ads_raw/")
