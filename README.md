@@ -220,7 +220,7 @@ Tested on a 1hr 38min simulated broadcast with 31 ads, mixed filler content:
 | Detection accuracy | 87% (27/31 ads within ±1) |
 | Exact match | 65% (20/31 ads exact) |
 | Average confidence | ~94% |
-| Processing time | ~45 minutes (CPU) |
+| Processing time | ~30 minutes (CPU) |
 | Training data | 31 ads, ~2000 frames |
 
 Accuracy improves significantly with more training data per ad.
