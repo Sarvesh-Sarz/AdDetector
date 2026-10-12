@@ -6,7 +6,7 @@
 
 ## What This Does
 
-Ad agencies book TV slots for their clients' ads. Currently, verifying whether those ads actually aired requires either trusting the TV channel's word or doing it manually. AdDetector solves this by watching the broadcast itself.
+Ad agencies book TV slots for their clients' ads. Currently, verifying whether those ads actually aired requires either trusting the TV channel's word or doing it manually. AdDetector solves this by watching  broadcast itself.
 
 You give it:
 - A list of booked ads (`bookings.xlsx`)
